@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quadcopter Control Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Linear Gauge specific styles for Motor Thrusts */
+        .gauge-bar-container {
+            width: 100%;
+            height: 20px; /* Height of the bar */
+            background-color: #334155; /* slate-700 background */
+            border-radius: 9999px; /* Fully rounded corners */
+            overflow: hidden; /* Ensure fill stays within bounds */
+        }
+
+        .gauge-bar-fill {
+            height: 100%;
+            background: linear-gradient(to right, #38b2ac, #5eead4); /* Teal gradient */
+            width: 0%; /* Initial width */
+            transition: width 0.1s ease-out; /* Smooth animation */
+            border-radius: 9999px; /* Inherit rounded corners */
+        }
+
+        /* 2D Attitude Gauge Styles */
+        .attitude-gauge-2d-container {
+            width: 200px; /* Square size */
+            height: 200px;
+            background-color: #334155; /* slate-700 */
+            border-radius: 8px; /* Slightly rounded corners for the box */
+            position: relative;
+            overflow: hidden; /* Keep marker inside */
+            margin-top: 1rem; /* Space from title */
+            border: 1px solid #475569; /* slate-600 border */
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.3); /* Inner shadow for depth */
+        }
+
+        .attitude-gauge-2d-marker {
+            position: absolute;
+            width: 24px; /* Size of the ball */
+            height: 24px;
+            background-color: #5eead4; /* Teal */
+            border-radius: 50%; /* Make it a circle/ball */
+            /* Center the marker based on its top/left position */
+            transform: translate(-50%, -50%);
+            transition: top 0.1s ease-out, left 0.1s ease-out; /* Smooth movement */
+            z-index: 2;
+            box-shadow: 0 0 8px rgba(94, 234, 212, 0.6); /* Glow effect for the ball */
+        }
+
+        /* Optional: Crosshairs for visual reference */
+        .attitude-gauge-2d-center-h-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background-color: #64748b; /* slate-500 */
+            transform: translateY(-50%);
+            z-index: 1;
+        }
+
+        .attitude-gauge-2d-center-v-line {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background-color: #64748b; /* slate-500 */
+            transform: translateX(-50%);
+            z-index: 1;
+        }
+
+        /* Styles to hide step buttons for number inputs */
+        /* For Chrome, Safari, Edge, Opera */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* For Firefox */
+        /* Styles to hide step buttons for number inputs */
+        /* For Chrome, Safari, Edge, Opera */
+        input[type="number"] {
+            appearance: textfield; /* Standard property */
+            -webkit-appearance: none;
+            -moz-appearance: textfield;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans antialiased min-h-screen flex flex-col">
+
+    <header class="bg-gray-800 p-2 shadow-lg flex-shrink-0">
+        <div class="container mx-auto flex justify-between items-center">
+            <span class="text-xl font-bold text-teal-400">AvionX</span>
+            <span class="text-base text-gray-400">Real-time Control</span>
+        </div>
+    </header>
+
+    <main class="flex-grow flex flex-col p-2 overflow-hidden">
+
+        <div class="flex flex-col md:flex-row items-stretch justify-center w-full gap-2">
+            <form id="my-form" class="w-full max-w-xs md:max-w-xs bg-gray-800 rounded-lg shadow-xl p-2 flex-shrink-0">
+                <h2 class="text-lg font-bold mb-2 text-teal-400 text-center">PID Gains & Angular Gain</h2>
+                <div class="grid grid-cols-1 gap-y-2">
+
+                    <div>
+                        <h3 class="text-m font-semibold text-gray-300 mb-1">Roll PID</h3>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label for="roll-p" class="block text-xs font-medium text-gray-400">P</label>
+                                <input type="text" name="Kp" id="roll-p"
+                                    class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm p-1">
+                            </div>
+                            <div>
+                                <label for="roll-i" class="block text-xs font-medium text-gray-400">I</label>
+                                <input type="text" name="Ki" id="roll-i"
+                                    class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm p-1">
+                            </div>
+                            <div>
+                                <label for="roll-d" class="block text-xs font-medium text-gray-400">D</label>
+                                <input type="text" name="Kd" id="roll-d"
+                                    class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm p-1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-m font-semibold text-gray-300 mb-1">Pitch PID</h3>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label for="pitch-p" class="block text-xs font-medium text-gray-400">P</label>
+                                <input type="text" name="Kp" id="pitch-p"
+                                    class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm p-1">
+                            </div>
+                            <div>
+                                <label for="pitch-i" class="block text-xs font-medium text-gray-400">I</label>
+                                <input type="text" name="Ki" id="pitch-i"
+                                    class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm p-1">
+                            </div>
+                            <div>
+                                <label for="pitch-d" class="block text-xs font-medium text-gray-400">D</label>
+                                <input type="text" name="Kd" id="pitch-d"
+                                    class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm p-1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-m font-semibold text-gray-300 mb-1">Yaw PID</h3>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label for="yaw-p" class="block text-xs font-medium text-gray-400">P</label>
+                                <input type="text" name="Kp" id="yaw-p"
+                                    class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm p-1">
+                            </div>
+                            <div>
+                                <label for="yaw-i" class="block text-xs font-medium text-gray-400">I</label>
+                                <input type="text" name="Ki" id="yaw-i"
+                                    class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm p-1">
+                            </div>
+                            <div>
+                                <label for="yaw-d" class="block text-xs font-medium text-gray-400">D</label>
+                                <input type="text" name="Kd" id="yaw-d"
+                                    class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm p-1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-m font-semibold text-gray-300 mb-1">Angular Gain</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label for="roll-angular-gain" class="block text-xs font-medium text-gray-400">Roll Angular Gain</label>
+                                <input type="text" name="AngularGain" id="roll-angular-gain"
+                                    class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm p-1">
+                            </div>
+                            <div>
+                                <label for="pitch-angular-gain" class="block text-xs font-medium text-gray-400">Pitch Angular Gain</label>
+                                <input type="text" name="AngularGain" id="pitch-angular-gain"
+                                    class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm p-1">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+
+                <button id="update-gains-btn" type="submit" value="Submit" onClick="updatePID()"
+                    class="mt-2 w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-1 px-2 rounded-md shadow-lg text-sm">
+                    Update PID Gains
+                </button>
+            </form>
+
+            <div class="flex-grow flex items-center justify-center bg-gray-800 rounded-lg shadow-xl p-2">
+                <h1 class="text-2xl font-extrabold text-gray-700 opacity-50 text-center">
+                    Future Features Area
+                </h1>
+            </div>
+        </div>
+
+        <div class="w-full bg-gray-800 rounded-lg shadow-xl p-2 flex-grow flex flex-col md:flex-row justify-around items-center gap-4 mt-2">
+            <div class="w-full md:w-1/2 text-center">
+                <h2 class="text-2xl md:text-3xl font-bold mb-8 text-teal-400">Motor Throttles (0-1000)</h2>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-8 max-w-screen-lg mx-auto justify-items-center">
+
+                    <div class="flex flex-col items-center w-32 md:w-40">
+                        <span class="text-md md:text-lg font-semibold text-gray-300 mb-1">Motor LF</span>
+                        <div class="gauge-bar-container">
+                            <div id="motor1-fill" class="gauge-bar-fill"></div>
+                        </div>
+                        <span id="motor1-value" class="text-md md:text-lg font-bold text-teal-300 mt-2">0</span>
+                    </div>
+
+                    <div class="flex flex-col items-center w-32 md:w-40">
+                        <span class="text-md md:text-lg font-semibold text-gray-300 mb-1">Motor RF</span>
+                        <div class="gauge-bar-container">
+                            <div id="motor2-fill" class="gauge-bar-fill"></div>
+                        </div>
+                        <span id="motor2-value" class="text-md md:text-lg font-bold text-teal-300 mt-2">0</span>
+                    </div>
+
+                    <div class="flex flex-col items-center w-32 md:w-40">
+                        <span class="text-md md:text-lg font-semibold text-gray-300 mb-1">Motor LB</span>
+                        <div class="gauge-bar-container">
+                            <div id="motor3-fill" class="gauge-bar-fill"></div>
+                        </div>
+                        <span id="motor3-value" class="text-md md:text-lg font-bold text-teal-300 mt-2">0</span>
+                    </div>
+
+                    <div class="flex flex-col items-center w-32 md:w-40">
+                        <span class="text-md md:text-lg font-semibold text-gray-300 mb-1">Motor RB</span>
+                        <div class="gauge-bar-container">
+                            <div id="motor4-fill" class="gauge-bar-fill"></div>
+                        </div>
+                        <span id="motor4-value" class="text-md md:text-lg font-bold text-teal-300 mt-2">0</span>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="text-center w-full md:w-1/2 flex flex-col items-center justify-center">
+                <div id="attitude-gauge-2d" class="attitude-gauge-2d-container">
+                    <div id="attitude-marker" class="attitude-gauge-2d-marker"></div>
+                    <div class="attitude-gauge-2d-center-h-line"></div>
+                    <div class="attitude-gauge-2d-center-v-line"></div>
+                </div>
+                <div class="flex justify-center gap-8 mt-4">
+                    <span class="text-lg font-semibold text-gray-300">Pitch: <span id="pitch-value" class="text-xl font-bold text-teal-300">0.00°</span></span>
+                    <span class="text-lg font-semibold text-gray-300">Roll: <span id="roll-value" class="text-xl font-bold text-teal-300">0.00°</span></span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- Update PID Gains ---
+        function updatePID() {
+            let xhr = new XMLHttpRequest();
+            let arg = "?";
+            for (let i = 0; i < 3; i++) {
+                arg += "Kp" + i.toString() + "=" + document.getElementsByName("Kp")[i].value + "&";
+                arg += "Ki" + i.toString() + "=" + document.getElementsByName("Ki")[i].value + "&";
+                arg += "Kd" + i.toString() + "=" + document.getElementsByName("Kd")[i].value + "&";
+            }
+            for (let i = 0; i < 2; i++) {
+                arg += "AngularGain" + i.toString() + "=" + document.getElementsByName("AngularGain")[i].value + "&";
+            }
+            xhr.open("GET", "/update" + arg, true);
+            xhr.send();
+        }
+        document.getElementById("my-form").addEventListener("submit", function(e){
+                e.preventDefault()
+        });
+
+        // --- Motor Gauge Update Logic ---
+        function updateMotorGauges(data) {
+            const maxThrust = 1000; // Max value for the gauges
+
+            ['motor1', 'motor2', 'motor3', 'motor4'].forEach((motorId, index) => {
+                const value = Math.max(0, Math.min(data[`m${index + 1}`], maxThrust)); // Clamp value
+                const percentage = (value / maxThrust) * 100; // Calculate percentage
+
+                const fillElement = document.getElementById(`${motorId}-fill`);
+                const valueElement = document.getElementById(`${motorId}-value`);
+
+                if (fillElement) fillElement.style.width = `${percentage}%`; // Update width for linear bar
+                if (valueElement) valueElement.textContent = value;
+            });
+        }
+
+        // --- Angle Gauge Update Logic (Updated for 2D) ---
+        const MAX_ANGLE = 90; // Max angle for pitch/roll display (e.g., +/- 45 degrees for full range)
+
+        function updateAngleGauges(pitch, roll) {
+            const attitudeMarker = document.getElementById('attitude-marker');
+            const pitchValueElement = document.getElementById('pitch-value');
+            const rollValueElement = document.getElementById('roll-value');
+
+            if (!attitudeMarker || !pitchValueElement || !rollValueElement) {
+                console.error("Attitude gauge elements not found.");
+                return;
+            }
+
+            // Clamp values to the display range
+            const clampedPitch = Math.max(-MAX_ANGLE, Math.min(pitch, MAX_ANGLE));
+            const clampedRoll = Math.max(-MAX_ANGLE, Math.min(roll, MAX_ANGLE));
+
+            // Calculate marker position (0% to 100% within the container)
+            // Roll (left/right) maps directly: -MAX_ANGLE -> 0%, 0 -> 50%, +MAX_ANGLE -> 100%
+            const rollPosition = ((clampedRoll + MAX_ANGLE) / (2 * MAX_ANGLE)) * 100;
+
+            // Pitch (up/down): -MAX_ANGLE -> 100% (bottom), 0 -> 50%, +MAX_ANGLE -> 0% (top)
+            // Invert the pitch value for 'top' CSS property as 'top' increases downwards
+            const pitchPosition = (1 - ((clampedPitch + MAX_ANGLE) / (2 * MAX_ANGLE))) * 100;
+
+            attitudeMarker.style.left = `${rollPosition}%`;
+            attitudeMarker.style.top = `${pitchPosition}%`;
+
+            pitchValueElement.textContent = `${clampedPitch.toFixed(2)}°`;
+            rollValueElement.textContent = `${clampedRoll.toFixed(2)}°`;
+        }
+
+        // --- PID Gain Button Animation ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const updateGainsBtn = document.getElementById('update-gains-btn');
+            if (updateGainsBtn) {
+                updateGainsBtn.addEventListener('click', () => {
+                    // Provide a simple visual feedback (e.g., button text change, or a temporary message)
+                    updateGainsBtn.textContent = 'Gains Updated!';
+                    setTimeout(() => {
+                        updateGainsBtn.textContent = 'Update PID Gains';
+                    }, 1500); // Reset button text after 1.5 seconds
+                });
+            }
+        });
+
+        if (!!window.EventSource) {
+
+            let source = new EventSource('/events');
+
+            source.addEventListener('open', function(e) {
+                console.log("Events Connected");
+            }, false);
+            source.addEventListener('error', function(e) {
+                if (e.target.readyState != EventSource.OPEN) {
+                console.log("Events Disconnected");
+                }
+            }, false);
+
+            source.addEventListener('message', function(e) {
+                console.log("message", e.data);
+            }, false);
+
+            source.addEventListener('data', function(e) {
+                let obj = JSON.parse(e.data);
+
+                let simPitch = parseFloat((obj.angles.y).toFixed(2));
+                let simRoll = parseFloat((obj.angles.x).toFixed(2));
+
+                let motor_1 = parseInt(obj.motor_throttles.left_front.toFixed());
+                let motor_2 = parseInt(obj.motor_throttles.right_front.toFixed());
+                let motor_3 = parseInt(obj.motor_throttles.right_back.toFixed());
+                let motor_4 = parseInt(obj.motor_throttles.left_back.toFixed());
+
+                const motorData = {
+                    m1: motor_1,
+                    m2: motor_2,
+                    m3: motor_4,
+                    m4: motor_3
+                };
+                updateMotorGauges(motorData);
+                
+                updateAngleGauges(simPitch, simRoll);
+
+                // console.log(
+                //     obj.angles.y.toString() + " " +
+                //     obj.angles.x.toString()
+                // );
+                
+                }, false);
+            }
+    </script>
+</body>
+</html>
